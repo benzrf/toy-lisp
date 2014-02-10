@@ -1,0 +1,59 @@
+(progn
+  (define map (lambda (f l)
+    (if l
+      (cons
+        (f (car l))
+        (this f (cdr l)))
+      l)
+  ))
+  (define quasiquote (macro (lambda (v)
+    (if (is-list v)
+      (if (eq (car v) 'dequote)
+        (car (cdr v))
+        (cons 'list (map (func this) v)))
+      (list 'quote v))
+  )))
+  (define ld (macro (lambda (body)
+    `(lambda (_) ,body)
+  )))
+  (define uw-let (lambda (vars) (progn
+    (define assignments
+      (map
+        (ld `(define ,(car _) ,(car (cdr _))))
+        vars))
+    (cons 'progn assignments)
+  )))
+  (define let (macro (lambda (vars body)
+    `((lambda ()
+      (progn
+        ,(uw-let vars)
+        ,body))))
+  ))
+  (define zip-with (lambda (f a b) (progn
+    (define zip-with-r (lambda (f a b acc)
+      (if (or (bool a) (bool b))
+        (this
+          f
+          (cdr a)
+          (cdr b)
+          (append (f (car a) (car b)) acc))
+        acc)))
+    (zip-with-r f a b ())
+  )))
+  (define zip (lambda (a b) (zip-with list a b)))
+  (define ldefine (macro (lambda (vars vals)
+    (append
+      (cons 'list vars)
+      (uw-let (zip vars vals)))
+  )))
+  (define compose (lambda (f g)
+    (lambda (x) (f (g x)))
+  ))
+  (define while (macro (lambda (cond body)
+    `((lambda () (if ,cond (progn ,body (while ,cond ,body)) ())))
+  )))
+  (define impure-while (macro (lambda (cond body)
+    `((impure (lambda () (if ,cond (progn ,body (while ,cond ,body)) ()))))
+  )))
+)
+
