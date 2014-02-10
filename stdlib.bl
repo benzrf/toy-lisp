@@ -16,6 +16,8 @@
   (define ld (macro (lambda (body)
     `(lambda (_) ,body)
   )))
+  (define id (ld _))
+  (define dequote id)
   (define uw-let (lambda (vars) (progn
     (define assignments
       (map
@@ -53,7 +55,7 @@
     `((lambda () (if ,cond (progn ,body (while ,cond ,body)) ())))
   )))
   (define impure-while (macro (lambda (cond body)
-    `((impure (lambda () (if ,cond (progn ,body (while ,cond ,body)) ()))))
+    `((impure (lambda () (if ,cond (progn ,body (impure-while ,cond ,body)) ()))))
   )))
 )
 
