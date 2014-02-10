@@ -15,6 +15,7 @@ import Text.Parsec
 import Text.Parsec.Numbers
 import System.IO
 import System.Environment
+import System.Directory
 
 -- types and instances
 
@@ -221,7 +222,8 @@ builtinFuncs =
                        ("is-bool", liftL (has _LispBool) id $ gb _LispBool),
                        ("is-sym",  liftL (has _LispSym)  id $ gb _LispBool),
                        ("is-list", liftL (has _LispList) id $ gb _LispBool),
-                       ("is-func", liftL (has lwfunc)    id $ gb _LispBool)]
+                       ("is-func", liftL (has lwfunc)    id $ gb _LispBool),
+                       ("read-file", liftL lispReadFile _LispSym id)]
 builtinFexprs =
   createEnv LispWFexpr [("quote", liftL id id $ gb id),
                         ("define", liftL2 define _LispSym id id),
@@ -236,6 +238,15 @@ builtinIPFuncs =
                          ("gets", HaskellFunc ?? lift . lift . lispGets)]
 defaultEnv = builtinIPFuncs `eunion` builtinFuncs `eunion` builtinFexprs
 
+lispReadFile :: String -> LispM
+lispReadFile fn = do
+  exists <- lift $ lift $ doesFileExist fn
+  if exists
+    then do
+      code <- lift $ lift $ readFile fn
+      lift $ right $ LispSym code
+    else lift $ left $ "no such file: " ++ fn
+
 lispRead :: String -> LispM
 lispRead s =
   case parseTerm "(read)" s of
@@ -244,7 +255,7 @@ lispRead s =
 
 lispGets :: [LispVal] -> IO LispVal
 lispGets prompt = do
-  putStr $  unwords (map show prompt) ++ " "
+  putStr $ unwords (map show prompt) ++ " "
   LispSym <$> getLine
 
 lispPrint :: (String -> IO a) -> LispVal -> IO LispVal
