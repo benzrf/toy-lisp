@@ -95,15 +95,15 @@ apply f a = do
   env <- get
   let purity = fst env
   case ef of
-    LispWIPFunc f ->
+    LispWIPFunc f' ->
       case purity of
         Pure   -> lift $ left $
           "impure function " ++ show ef ++ " called in a pure context"
-        Impure -> mapM eval a >>= uwApply Impure f ef
-    LispWFunc   f -> mapM eval a >>= uwApply Pure f ef
-    LispWFexpr  f -> uwApply Pure f ef a
-    LispWVmacro f -> mapM eval a >>= uwApply Pure f ef >>= eval
-    LispWMacro  f -> uwApply Pure f ef a >>= eval
+        Impure -> mapM eval a >>= uwApply Impure f' ef
+    LispWFunc   f' -> mapM eval a >>= uwApply Pure f' ef
+    LispWFexpr  f' -> uwApply Pure f' ef a
+    LispWVmacro f' -> mapM eval a >>= uwApply Pure f' ef >>= eval
+    LispWMacro  f' -> uwApply Pure f' ef a >>= eval
     _             -> lift $ left $ "not a function: " ++ show ef
 
 uwApply :: Purity -> LispFunc -> LispVal -> [LispVal] -> LispM
@@ -331,7 +331,6 @@ parseTerm :: String -> String -> Either ParseError LispVal
 parseTerm = parse termP
 
 -- io
-
 
 repl :: Env -> IO ()
 repl env = do
