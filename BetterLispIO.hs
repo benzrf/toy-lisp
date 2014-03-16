@@ -90,7 +90,13 @@ eval (LispList l@(f:a)) = apply f a
 eval other              = return other
 
 apply :: LispVal -> [LispVal] -> LispM
-apply f a = do
+apply = sApply eval
+
+neApply :: LispVal -> [LispVal] -> LispM
+neApply = sApply return
+
+sApply :: (LispVal -> LispM) -> LispVal -> [LispVal] -> LispM
+sApply eval f a = do
   ef  <- eval f
   env <- get
   let purity = fst env
@@ -180,7 +186,7 @@ createEnv c ps =
 builtinFuncs =
   createEnv LispWFunc [("progn", HaskellFunc ?? return . last),
                        ("eval",  liftL eval id id),
-                       ("apply", liftL2 apply id _LispList id),
+                       ("apply", liftL2 neApply id _LispList id),
                        ("list", HaskellFunc ?? return . LispList),
                        ("cons", liftL2 (:) id _LispList $ gb _LispList),
                        ("concat", liftL2 (++)
@@ -223,7 +229,7 @@ builtinFuncs =
                        ("is-sym",  liftL (has _LispSym)  id $ gb _LispBool),
                        ("is-list", liftL (has _LispList) id $ gb _LispBool),
                        ("is-func", liftL (has lwfunc)    id $ gb _LispBool),
-                       ("read-file", liftL lispReadFile _LispSym id)]
+                       ("try", liftL3 lispTry id id id id)]
 builtinFexprs =
   createEnv LispWFexpr [("quote", liftL id id $ gb id),
                         ("define", liftL2 define _LispSym id id),
@@ -235,8 +241,18 @@ builtinIPFuncs =
                            id $ lift . lift),
                          ("print", liftL (lispPrint putStr)
                            id $ lift . lift),
-                         ("gets", HaskellFunc ?? lift . lift . lispGets)]
+                         ("gets", HaskellFunc ?? lift . lift . lispGets),
+                         ("read-file", liftL lispReadFile _LispSym id)]
 defaultEnv = builtinIPFuncs `eunion` builtinFuncs `eunion` builtinFexprs
+
+lispTry :: LispVal -> LispVal -> LispVal -> LispM
+lispTry proc succ catch = do
+  env <- get
+  let io = runEitherT $ runStateT (neApply proc []) env
+  res <- lift $ lift io
+  case res of
+    Left err       -> neApply catch [LispSym err]
+    Right (v, env) -> put env >> neApply succ [v]
 
 lispReadFile :: String -> LispM
 lispReadFile fn = do
